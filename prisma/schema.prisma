@@ -1,0 +1,361 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Get a free hosted Postgres database in seconds: `npx create-db`
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum UserRole {
+  platform_admin
+  store_owner
+  staff
+}
+
+enum RecordStatus {
+  active
+  inactive
+  disabled
+}
+
+enum MasteryStatus {
+  not_mastered
+  reviewing
+  mastered
+  focus
+}
+
+enum PlanType {
+  today
+  weekly
+}
+
+enum FeatureType {
+  wrong_question
+  study_plan
+  daily_report
+}
+
+model User {
+  id           String       @id @default(uuid()) @db.Uuid
+  storeId      String?      @map("store_id") @db.Uuid
+  store        Store?       @relation("StoreUsers", fields: [storeId], references: [id])
+  ownedStore   Store?       @relation("StoreOwner")
+  name         String       @db.VarChar(100)
+  phone        String?      @unique @db.VarChar(30)
+  email        String?      @unique @db.VarChar(100)
+  passwordHash String       @map("password_hash")
+  role         UserRole
+  status       RecordStatus @default(active)
+  createdAt    DateTime     @default(now()) @map("created_at")
+  updatedAt    DateTime     @updatedAt @map("updated_at")
+
+  assignedStudents Student[]       @relation("AssignedStudents")
+  wrongQuestions   WrongQuestion[]
+  studyPlans       StudyPlan[]
+  dailyReports     DailyReport[]
+  aiUsageLogs      AiUsageLog[]
+  aiFailureLogs    AiFailureLog[]
+
+  @@index([storeId])
+  @@map("users")
+}
+
+model Store {
+  id              String       @id @default(uuid()) @db.Uuid
+  name            String       @db.VarChar(200)
+  ownerUserId     String?      @unique @map("owner_user_id") @db.Uuid
+  owner           User?        @relation("StoreOwner", fields: [ownerUserId], references: [id])
+  logoUrl         String?      @map("logo_url")
+  packageType     String?      @map("package_type") @db.VarChar(50)
+  packageExpireAt DateTime?    @map("package_expire_at")
+  status          RecordStatus @default(active)
+  createdAt       DateTime     @default(now()) @map("created_at")
+  updatedAt       DateTime     @updatedAt @map("updated_at")
+
+  users          User[]          @relation("StoreUsers")
+  students       Student[]
+  wrongQuestions WrongQuestion[]
+  studyPlans     StudyPlan[]
+  dailyReports   DailyReport[]
+  accessTokens   StudentAccessToken[]
+  taskProgress   StudentTaskProgress[]
+  aiInteractions StudentAiInteraction[]
+  quotas         StoreQuota[]
+  aiUsageLogs    AiUsageLog[]
+  aiFailureLogs  AiFailureLog[]
+
+  @@map("stores")
+}
+
+model Student {
+  id             String       @id @default(uuid()) @db.Uuid
+  storeId        String       @map("store_id") @db.Uuid
+  store          Store        @relation(fields: [storeId], references: [id])
+  assignedUserId String?      @map("assigned_user_id") @db.Uuid
+  assignedUser   User?        @relation("AssignedStudents", fields: [assignedUserId], references: [id])
+  name           String       @db.VarChar(100)
+  grade          String       @db.VarChar(50)
+  mainSubjects   String       @default("") @map("main_subjects")
+  goal           String       @default("")
+  weakSubjects   String       @default("") @map("weak_subjects")
+  weakPoints     String       @default("") @map("weak_points")
+  parentName     String?      @map("parent_name") @db.VarChar(100)
+  parentContact  String?      @map("parent_contact") @db.VarChar(100)
+  remark         String?
+  status         RecordStatus @default(active)
+  createdAt      DateTime     @default(now()) @map("created_at")
+  updatedAt      DateTime     @updatedAt @map("updated_at")
+
+  wrongQuestions WrongQuestion[]
+  studyPlans     StudyPlan[]
+  dailyReports   DailyReport[]
+  accessTokens   StudentAccessToken[]
+  taskProgress   StudentTaskProgress[]
+  aiInteractions StudentAiInteraction[]
+
+  @@index([storeId, status])
+  @@index([assignedUserId])
+  @@map("students")
+}
+
+model WrongQuestion {
+  id               String        @id @default(uuid()) @db.Uuid
+  storeId          String        @map("store_id") @db.Uuid
+  store            Store         @relation(fields: [storeId], references: [id])
+  studentId        String        @map("student_id") @db.Uuid
+  student          Student       @relation(fields: [studentId], references: [id])
+  createdById      String?       @map("created_by") @db.Uuid
+  createdBy        User?         @relation(fields: [createdById], references: [id])
+  subject          String        @db.VarChar(50)
+  imageUrl         String?       @map("image_url")
+  studentReason    String?       @map("student_reason")
+  ocrText          String?       @map("ocr_text")
+  knowledgePoint   String?       @map("knowledge_point")
+  questionType     String?       @map("question_type")
+  difficulty       String?       @db.VarChar(50)
+  aiAnalysis       String        @map("ai_analysis")
+  hintLevel1       String?       @map("hint_level_1")
+  hintLevel2       String?       @map("hint_level_2")
+  fullExplanation  String?       @map("full_explanation")
+  reviewSuggestion String?       @map("review_suggestion")
+  nextReviewDate   DateTime?     @map("next_review_date") @db.Date
+  masteryStatus    MasteryStatus @default(not_mastered) @map("mastery_status")
+  aiModel          String?       @map("ai_model") @db.VarChar(100)
+  inputTokens      Int?          @map("input_tokens")
+  outputTokens     Int?          @map("output_tokens")
+  rawOutput        Json?         @map("raw_output")
+  createdAt        DateTime      @default(now()) @map("created_at")
+  updatedAt        DateTime      @updatedAt @map("updated_at")
+
+  studentAiInteractions StudentAiInteraction[]
+
+  @@index([storeId, studentId])
+  @@index([storeId, subject])
+  @@index([storeId, masteryStatus])
+  @@map("wrong_questions")
+}
+
+model StudyPlan {
+  id               String    @id @default(uuid()) @db.Uuid
+  storeId          String    @map("store_id") @db.Uuid
+  store            Store     @relation(fields: [storeId], references: [id])
+  studentId        String    @map("student_id") @db.Uuid
+  student          Student   @relation(fields: [studentId], references: [id])
+  createdById      String?   @map("created_by") @db.Uuid
+  createdBy        User?     @relation(fields: [createdById], references: [id])
+  planType         PlanType  @map("plan_type")
+  availableMinutes Int       @map("available_minutes")
+  focusSubject     String?   @map("focus_subject") @db.VarChar(50)
+  inputData        Json      @map("input_data")
+  content          String
+  aiModel          String?   @map("ai_model") @db.VarChar(100)
+  inputTokens      Int?      @map("input_tokens")
+  outputTokens     Int?      @map("output_tokens")
+  rawOutput        Json?     @map("raw_output")
+  createdAt        DateTime  @default(now()) @map("created_at")
+  updatedAt        DateTime  @updatedAt @map("updated_at")
+
+  taskProgress StudentTaskProgress[]
+
+  @@index([storeId, studentId])
+  @@map("study_plans")
+}
+
+model StudentAccessToken {
+  id         String       @id @default(uuid()) @db.Uuid
+  storeId    String       @map("store_id") @db.Uuid
+  store      Store        @relation(fields: [storeId], references: [id])
+  studentId  String       @map("student_id") @db.Uuid
+  student    Student      @relation(fields: [studentId], references: [id])
+  token      String       @unique @db.VarChar(80)
+  status     RecordStatus @default(active)
+  expiresAt  DateTime?    @map("expires_at")
+  lastUsedAt DateTime?    @map("last_used_at")
+  createdAt  DateTime     @default(now()) @map("created_at")
+  updatedAt  DateTime     @updatedAt @map("updated_at")
+
+  @@index([storeId, studentId])
+  @@map("student_access_tokens")
+}
+
+model StudentTaskProgress {
+  id          String    @id @default(uuid()) @db.Uuid
+  storeId     String    @map("store_id") @db.Uuid
+  store       Store     @relation(fields: [storeId], references: [id])
+  studentId   String    @map("student_id") @db.Uuid
+  student     Student   @relation(fields: [studentId], references: [id])
+  studyPlanId String?   @map("study_plan_id") @db.Uuid
+  studyPlan   StudyPlan? @relation(fields: [studyPlanId], references: [id])
+  title       String
+  status      String    @default("pending") @db.VarChar(30)
+  completedAt DateTime? @map("completed_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  @@index([storeId, studentId])
+  @@index([studyPlanId])
+  @@map("student_task_progress")
+}
+
+model StudentAiInteraction {
+  id              String         @id @default(uuid()) @db.Uuid
+  storeId         String         @map("store_id") @db.Uuid
+  store           Store          @relation(fields: [storeId], references: [id])
+  studentId       String         @map("student_id") @db.Uuid
+  student         Student        @relation(fields: [studentId], references: [id])
+  wrongQuestionId String?        @map("wrong_question_id") @db.Uuid
+  wrongQuestion   WrongQuestion? @relation(fields: [wrongQuestionId], references: [id])
+  interactionType String         @map("interaction_type") @db.VarChar(50)
+  content         String?
+  createdAt       DateTime       @default(now()) @map("created_at")
+
+  @@index([storeId, studentId])
+  @@index([wrongQuestionId])
+  @@map("student_ai_interactions")
+}
+
+model DailyReport {
+  id               String   @id @default(uuid()) @db.Uuid
+  storeId          String   @map("store_id") @db.Uuid
+  store            Store    @relation(fields: [storeId], references: [id])
+  studentId        String   @map("student_id") @db.Uuid
+  student          Student  @relation(fields: [studentId], references: [id])
+  createdById      String?  @map("created_by") @db.Uuid
+  createdBy        User?    @relation(fields: [createdById], references: [id])
+  reportDate       DateTime @map("report_date") @db.Date
+  studyDuration    String   @map("study_duration")
+  studyContent     String   @map("study_content")
+  completionStatus String   @map("completion_status") @db.VarChar(50)
+  studyStatus      String   @map("study_status") @db.VarChar(50)
+  inputData        Json     @map("input_data")
+  content          String
+  copiedCount      Int      @default(0) @map("copied_count")
+  aiModel          String?  @map("ai_model") @db.VarChar(100)
+  inputTokens      Int?     @map("input_tokens")
+  outputTokens     Int?     @map("output_tokens")
+  rawOutput        Json?    @map("raw_output")
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+
+  @@index([storeId, studentId])
+  @@index([storeId, reportDate])
+  @@map("daily_reports")
+}
+
+model Package {
+  id                 String       @id @default(uuid()) @db.Uuid
+  name               String       @db.VarChar(100)
+  monthlyPrice       Decimal      @map("monthly_price") @db.Decimal(10, 2)
+  studentLimit       Int          @map("student_limit")
+  wrongQuestionQuota Int          @map("wrong_question_quota")
+  studyPlanQuota     Int          @map("study_plan_quota")
+  dailyReportQuota   Int          @map("daily_report_quota")
+  staffLimit         Int          @map("staff_limit")
+  status             RecordStatus @default(active)
+  createdAt          DateTime     @default(now()) @map("created_at")
+  updatedAt          DateTime     @updatedAt @map("updated_at")
+
+  quotas StoreQuota[]
+
+  @@map("packages")
+}
+
+model StoreQuota {
+  id                 String   @id @default(uuid()) @db.Uuid
+  storeId            String   @map("store_id") @db.Uuid
+  store              Store    @relation(fields: [storeId], references: [id])
+  packageId          String?  @map("package_id") @db.Uuid
+  package            Package? @relation(fields: [packageId], references: [id])
+  month              String   @db.VarChar(20)
+  wrongQuestionUsed  Int      @default(0) @map("wrong_question_used")
+  wrongQuestionQuota Int      @default(0) @map("wrong_question_quota")
+  studyPlanUsed      Int      @default(0) @map("study_plan_used")
+  studyPlanQuota     Int      @default(0) @map("study_plan_quota")
+  dailyReportUsed    Int      @default(0) @map("daily_report_used")
+  dailyReportQuota   Int      @default(0) @map("daily_report_quota")
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @updatedAt @map("updated_at")
+
+  @@unique([storeId, month])
+  @@map("store_quotas")
+}
+
+model AiUsageLog {
+  id           String      @id @default(uuid()) @db.Uuid
+  storeId      String      @map("store_id") @db.Uuid
+  store        Store       @relation(fields: [storeId], references: [id])
+  userId       String?     @map("user_id") @db.Uuid
+  user         User?       @relation(fields: [userId], references: [id])
+  featureType  FeatureType @map("feature_type")
+  modelName    String      @map("model_name") @db.VarChar(100)
+  inputTokens  Int         @default(0) @map("input_tokens")
+  outputTokens Int         @default(0) @map("output_tokens")
+  cost         Decimal     @default(0) @db.Decimal(10, 4)
+  chargedUnits Int         @default(1) @map("charged_units")
+  createdAt    DateTime    @default(now()) @map("created_at")
+
+  @@index([storeId, featureType])
+  @@index([storeId, createdAt])
+  @@map("ai_usage_logs")
+}
+
+model AiFailureLog {
+  id           String      @id @default(uuid()) @db.Uuid
+  storeId      String      @map("store_id") @db.Uuid
+  store        Store       @relation(fields: [storeId], references: [id])
+  userId       String?     @map("user_id") @db.Uuid
+  user         User?       @relation(fields: [userId], references: [id])
+  featureType  FeatureType @map("feature_type")
+  modelName    String      @map("model_name") @db.VarChar(100)
+  errorMessage String      @map("error_message")
+  durationMs   Int         @default(0) @map("duration_ms")
+  createdAt    DateTime    @default(now()) @map("created_at")
+
+  @@index([storeId, featureType])
+  @@index([storeId, createdAt])
+  @@map("ai_failure_logs")
+}
+
+model PromptTemplate {
+  id                 String       @id @default(uuid()) @db.Uuid
+  featureType        FeatureType  @map("feature_type")
+  name               String       @db.VarChar(100)
+  systemPrompt       String       @map("system_prompt")
+  userPromptTemplate String       @map("user_prompt_template")
+  modelName          String       @map("model_name") @db.VarChar(100)
+  temperature        Decimal      @default(0.3) @db.Decimal(3, 2)
+  version            Int          @default(1)
+  status             RecordStatus @default(active)
+  createdAt          DateTime     @default(now()) @map("created_at")
+  updatedAt          DateTime     @updatedAt @map("updated_at")
+
+  @@index([featureType, status])
+  @@map("prompt_templates")
+}
