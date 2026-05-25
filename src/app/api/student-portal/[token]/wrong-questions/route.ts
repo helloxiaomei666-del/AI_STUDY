@@ -1,6 +1,5 @@
-import { notFound } from "next/navigation";
 import { AIService } from "@/lib/ai/ai-service";
-import { jsonOk, readJson } from "@/lib/api";
+import { jsonError, jsonErrorFromUnknown, jsonOk, readJson } from "@/lib/api";
 import { prisma } from "@/lib/prisma";
 import { getStudentByAccessToken } from "@/lib/student-access";
 import { studentPortalAnalyzeSchema } from "@/lib/validation";
@@ -8,7 +7,7 @@ import { studentPortalAnalyzeSchema } from "@/lib/validation";
 export async function POST(request: Request, { params }: { params: Promise<{ token: string }> }) {
   const { token } = await params;
   const access = await getStudentByAccessToken(token);
-  if (!access) notFound();
+  if (!access) return jsonError("学生端链接无效或已过期", 404);
 
   try {
     const input = studentPortalAnalyzeSchema.parse(await readJson(request));
@@ -34,7 +33,6 @@ export async function POST(request: Request, { params }: { params: Promise<{ tok
 
     return jsonOk(record, { status: 201 });
   } catch (error) {
-    const message = error instanceof Error ? error.message : "提交失败";
-    return Response.json({ ok: false, error: message }, { status: 400 });
+    return jsonErrorFromUnknown(error);
   }
 }

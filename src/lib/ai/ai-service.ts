@@ -4,7 +4,7 @@ import { Prisma, type PrismaClient } from "@/generated/prisma/client";
 import { FeatureType, PlanType } from "@/generated/prisma/enums";
 import { defaultPromptTemplates } from "@/lib/ai/prompts";
 import { ApiError } from "@/lib/api";
-import { getCurrentMonthKey } from "@/lib/format";
+import { dateOnlyFromKey, getCurrentDateKey, getCurrentMonthKey } from "@/lib/format";
 import { prisma } from "@/lib/prisma";
 import { scienceSubjects } from "@/lib/subjects";
 import { assertValidImageDataUrl, saveImageDataUrl } from "@/lib/uploads";
@@ -712,7 +712,7 @@ ${input.staffNote ? `督学补充：${input.staffNote}` : "我们会继续关注
           storeId: input.storeId,
           studentId: input.studentId,
           createdById: input.userId,
-          reportDate: input.reportDate ? new Date(input.reportDate) : new Date(),
+          reportDate: dateOnlyFromKey(input.reportDate || getCurrentDateKey()),
           studyDuration: input.studyDuration,
           studyContent: input.studyContent,
           completionStatus: input.completionStatus,

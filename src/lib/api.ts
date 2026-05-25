@@ -37,6 +37,11 @@ function publicError(error: unknown) {
   return { message: "服务异常", status: 500 };
 }
 
+export function jsonErrorFromUnknown(error: unknown) {
+  const { message, status } = publicError(error);
+  return jsonError(message, status);
+}
+
 export async function requireApiUser<T>(
   request: Request,
   handler: ApiHandler<T>,
