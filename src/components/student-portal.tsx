@@ -459,7 +459,7 @@ export function StudentPortal({
             {student.name} · {student.grade}
           </h1>
           <p className="mt-2 text-sm leading-6 text-slate-600">
-            学生端分为两块：错题补弱处理当前不会的题；AI主动学习训练学生提出好问题、追问和总结新知识。
+            学生端分为两块：错题补弱处理当前不会的题；AI学业助手帮助学生完成预习、复习、总结和验证，并在过程中培养AI素养。
           </p>
         </div>
 
@@ -468,11 +468,11 @@ export function StudentPortal({
             <div>
               <div className="inline-flex items-center gap-2 rounded-full bg-white/12 px-3 py-1 text-xs font-medium text-emerald-50">
                 <Sparkles className="h-4 w-4" />
-                AI时代学习力训练
+                AI学业助手
               </div>
-              <h2 className="mt-4 text-2xl font-semibold">AI主动学习</h2>
+              <h2 className="mt-4 text-2xl font-semibold">用AI辅助完成真实学习任务</h2>
               <p className="mt-3 max-w-2xl text-sm leading-7 text-emerald-50">
-                选择一个想探索的新主题，AI会帮你建立入门地图，并训练你把“我想了解一下”变成具体、可追问、可验证的好问题。
+                选择科目和任务，放入课堂笔记、教材片段或作业要求。AI会带你预习、复习、解释、总结和检查理解，同时提醒你如何验证AI回答。
               </p>
               <div className="mt-5 flex flex-wrap gap-3">
                 <Button
@@ -482,7 +482,7 @@ export function StudentPortal({
                   onClick={() => activateMode("advanced")}
                 >
                   <Sparkles className="h-4 w-4" />
-                  开始AI主动学习
+                  开始AI学业助手
                 </Button>
                 <Button type="button" variant="secondary" className="border-white/30 bg-white/10 text-white hover:bg-white/15" onClick={() => activateMode("remedial")}>
                   先做错题补弱
@@ -490,7 +490,7 @@ export function StudentPortal({
               </div>
             </div>
             <div className="grid gap-3 text-sm">
-              {["提出更具体的问题", "学会追问和验证答案", "生成给督学看的学习证据"].map((item) => (
+              {["围绕真实学业任务学习", "顺带训练AI提问与验证", "生成给督学看的学习证据"].map((item) => (
                 <button
                   key={item}
                   type="button"
@@ -515,9 +515,9 @@ export function StudentPortal({
           >
             <div className="flex items-center gap-2 font-semibold text-slate-950">
               <Sparkles className="h-4 w-4 text-emerald-700" />
-              AI主动学习
+              AI学业助手
             </div>
-            <div className="mt-1 text-sm text-slate-600">亮点功能：练习向AI提问、追问、验证和总结，适合高中专业探索和新技能入门。</div>
+            <div className="mt-1 text-sm text-slate-600">亮点功能：用AI辅助预习、复习、解释材料和检查理解，同时培养AI素养。</div>
           </button>
           <button
             type="button"
@@ -554,7 +554,7 @@ export function StudentPortal({
             onSelectQuestion={(id) => setChallenge({ wrongQuestionId: id, step: 1 })}
           />
         ) : (
-          <ActiveLearningLab logInteraction={logInteraction} />
+          <AcademicAssistantLab logInteraction={logInteraction} />
         )}
       </div>
     </main>
@@ -1238,6 +1238,339 @@ type ActiveLearningMessage = {
   followUps?: string[];
 };
 
+type AcademicSubject = "数学" | "物理" | "化学" | "学术英语" | "通用学习";
+
+type AcademicTask = "帮我预习" | "帮我复习" | "帮我解释" | "帮我总结" | "检查理解";
+
+type AcademicMessage = {
+  role: "student" | "ai";
+  content: string;
+  label?: string;
+};
+
+const academicSubjects: Array<{
+  value: AcademicSubject;
+  title: string;
+  note: string;
+}> = [
+  { value: "数学", title: "数学", note: "公式来源、步骤拆解、变式验证" },
+  { value: "物理", title: "物理", note: "情境建模、变量关系、单位检查" },
+  { value: "化学", title: "化学", note: "概念边界、现象证据、方程式规范" },
+  { value: "学术英语", title: "学术英语", note: "证据定位、句法结构、学术表达" },
+  { value: "通用学习", title: "通用学习", note: "材料梳理、笔记总结、理解检查" },
+];
+
+const academicTasks: AcademicTask[] = ["帮我预习", "帮我复习", "帮我解释", "帮我总结", "检查理解"];
+
+function buildAcademicMethod(subject: AcademicSubject) {
+  const methods: Record<
+    AcademicSubject,
+    {
+      focus: string;
+      validation: string;
+      warning: string;
+      followUps: string[];
+    }
+  > = {
+    数学: {
+      focus: "先确认概念和公式的适用条件，再拆步骤，最后用一道变式题检查是否真的会用。",
+      validation: "请你独立写出每一步为什么成立，并让AI只检查逻辑断点，不直接代写答案。",
+      warning: "不要只问答案。数学学习要让AI解释公式来源、条件和易错步骤。",
+      followUps: ["这个公式什么时候不能用？", "请给我一道同类型但条件变化的题。", "我这一步推导有没有逻辑跳跃？"],
+    },
+    物理: {
+      focus: "先把题目或材料转成物理情境，列出已知量、未知量、单位和变量关系。",
+      validation: "请你用单位检查、极端情况和图像/受力/过程分析验证结论。",
+      warning: "物理不能只套公式。要让AI追问对象、过程、条件和单位。",
+      followUps: ["这个情境中哪些量是不变的？", "如果条件改变，结论会怎样变？", "请帮我做一次单位检查。"],
+    },
+    化学: {
+      focus: "先区分现象、证据和结论，再看概念边界、反应条件和表达规范。",
+      validation: "请你用一个生活现象或实验现象解释概念，并说明证据是否足够支持结论。",
+      warning: "化学不要只背结论。要让AI说明现象依据、反例和适用范围。",
+      followUps: ["这个结论的实验依据是什么？", "有没有容易混淆的相近概念？", "请指出方程式或符号表达是否规范。"],
+    },
+    学术英语: {
+      focus: "先定位原文证据句，再分析句法结构、指代关系和学术表达，不使用口语俚语。",
+      validation: "请你用原文证据支持答案，并让AI指出证据句、关键词和语法结构。",
+      warning: "英语反馈必须严谨。不要让AI给口语化解释，要要求证据、结构和正式表达。",
+      followUps: ["请标出原文证据句。", "这个长难句的主干和修饰成分是什么？", "请把我的表达改成正式学术英语。"],
+    },
+    通用学习: {
+      focus: "先把材料拆成概念、例子、问题和结论，再生成可执行的学习步骤。",
+      validation: "请你用自己的话复述，并让AI给一个能验证理解的小任务。",
+      warning: "通用学习也要避免泛泛而谈。要让AI给依据、步骤、例子和检查标准。",
+      followUps: ["这段材料最核心的三个概念是什么？", "请给我一个能验证理解的小任务。", "我应该先学什么，暂时跳过什么？"],
+    },
+  };
+  return methods[subject];
+}
+
+function buildAcademicResponse(input: {
+  subject: AcademicSubject;
+  task: AcademicTask;
+  material: string;
+  goal: string;
+}) {
+  const method = buildAcademicMethod(input.subject);
+  const materialPreview = input.material.trim().slice(0, 90);
+  const taskGuide: Record<AcademicTask, string> = {
+    帮我预习: "先建立入门框架，不急着做难题；把陌生词、核心概念和第一个例子讲清楚。",
+    帮我复习: "先找出已经学过但不稳定的部分，再用小题或复述检查薄弱点。",
+    帮我解释: "围绕学生贴出的材料逐段解释，优先讲清楚因果、条件和边界。",
+    帮我总结: "把材料压缩成可复习笔记，保留概念、例子、易错点和检查问题。",
+    检查理解: "不直接讲新内容，先用追问、小任务和反例判断学生是不是真的理解。",
+  };
+
+  return [
+    `学习任务：${input.subject} · ${input.task}`,
+    `目标：${input.goal || "把当前材料学懂，并能自己复述重点。"}`,
+    "",
+    "1. 先定位本次材料",
+    materialPreview ? `我会先围绕你提供的材料开讲：${materialPreview}${input.material.length > 90 ? "..." : ""}` : "你还没有提供具体材料，可以先粘贴教材、笔记、作业要求或阅读文本。",
+    "",
+    "2. 本次学习方法",
+    taskGuide[input.task],
+    method.focus,
+    "",
+    "3. AI素养提醒",
+    method.warning,
+    "向AI提问时要给出年级、材料、目标和希望输出的形式；对AI答案要追问依据、反例和验证方法。",
+    "",
+    "4. 理解验证",
+    method.validation,
+  ].join("\n");
+}
+
+function buildAcademicEvidence(input: {
+  subject: AcademicSubject;
+  task: AcademicTask;
+  material: string;
+  goal: string;
+  messages: AcademicMessage[];
+}) {
+  const studentTurns = input.messages.filter((item) => item.role === "student").length;
+  return [
+    `科目：${input.subject}`,
+    `任务：${input.task}`,
+    `学习目标：${input.goal || "未填写"}`,
+    `材料长度：约 ${input.material.trim().length} 字`,
+    `学生追问次数：${Math.max(0, studentTurns - 1)} 次`,
+    "督学观察点：学生是否能带着材料、目标和验证要求向AI提问，而不是只要现成答案。",
+  ].join("\n");
+}
+
+function buildAcademicFollowUpResponse(question: string, subject: AcademicSubject, task: AcademicTask) {
+  const method = buildAcademicMethod(subject);
+  return [
+    `我会按“${subject} · ${task}”继续处理这个问题。`,
+    "",
+    "先把你的问题变得更可学习：",
+    `你可以追问：${question}`,
+    "",
+    "我的反馈方式：",
+    method.focus,
+    "",
+    "下一步请你做一件事：",
+    method.validation,
+  ].join("\n");
+}
+
+function AcademicAssistantLab({ logInteraction }: { logInteraction: (interactionType: string, content?: string, wrongQuestionId?: string) => void }) {
+  const [subject, setSubject] = useState<AcademicSubject>("数学");
+  const [task, setTask] = useState<AcademicTask>("帮我预习");
+  const [material, setMaterial] = useState("例如：今天课堂讲了一次函数，我不太清楚斜率、截距和图像之间的关系。");
+  const [goal, setGoal] = useState("我想先听懂核心概念，再知道怎样验证自己真的理解。");
+  const [question, setQuestion] = useState("");
+  const [messages, setMessages] = useState<AcademicMessage[]>([]);
+  const [evidence, setEvidence] = useState("");
+  const method = buildAcademicMethod(subject);
+
+  function startSession() {
+    const nextMessages: AcademicMessage[] = [
+      {
+        role: "student",
+        label: "学习任务",
+        content: `科目：${subject}\n任务：${task}\n目标：${goal}\n材料：${material}`,
+      },
+      {
+        role: "ai",
+        label: "AI学习助手",
+        content: buildAcademicResponse({ subject, task, material, goal }),
+      },
+    ];
+    setMessages(nextMessages);
+    setEvidence(buildAcademicEvidence({ subject, task, material, goal, messages: nextMessages }));
+    logInteraction("academic_assistant_session", `${subject}; ${task}; ${goal}; ${material.slice(0, 120)}`);
+  }
+
+  function askFollowUp(nextQuestion?: string) {
+    const content = (nextQuestion || question).trim();
+    if (!content) return;
+    const nextMessages: AcademicMessage[] = [
+      ...messages,
+      { role: "student", label: "学生追问", content },
+      { role: "ai", label: "AI反馈", content: buildAcademicFollowUpResponse(content, subject, task) },
+    ];
+    setMessages(nextMessages);
+    setEvidence(buildAcademicEvidence({ subject, task, material, goal, messages: nextMessages }));
+    setQuestion("");
+    logInteraction("academic_assistant_follow_up", `${subject}; ${task}; ${content}`);
+  }
+
+  return (
+    <div className="grid gap-6">
+      <Card
+        title="AI学业助手"
+        action={<span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-medium text-emerald-700">真实学业任务</span>}
+      >
+        <div className="grid gap-4 lg:grid-cols-[1fr_0.9fr]">
+          <div className="text-sm leading-7 text-slate-700">
+            学生把教材片段、课堂笔记、作业要求或英语文本贴进来，AI不只是给答案，而是带着学生完成预习、复习、解释、总结和理解验证。
+          </div>
+          <div className="rounded-md border border-emerald-100 bg-emerald-50 p-4 text-sm leading-7 text-emerald-950">
+            <div className="font-medium">第一版目标</div>
+            <div className="mt-1">用AI辅助真实学习任务，同时训练学生提出具体问题、要求依据、验证答案和整理学习证据。</div>
+          </div>
+        </div>
+      </Card>
+
+      <div className="grid gap-6 xl:grid-cols-[380px_1fr_340px]">
+        <Card title="学习输入">
+          <div className="grid gap-4">
+            <Field label="选择科目">
+              <div className="grid gap-2">
+                {academicSubjects.map((item) => (
+                  <button
+                    key={item.value}
+                    type="button"
+                    onClick={() => setSubject(item.value)}
+                    className={cn(
+                      "rounded-md border px-3 py-3 text-left transition",
+                      subject === item.value ? "border-emerald-400 bg-emerald-50 text-emerald-950" : "border-slate-200 bg-white hover:border-emerald-200",
+                    )}
+                  >
+                    <div className="font-medium">{item.title}</div>
+                    <div className="mt-1 text-xs text-slate-500">{item.note}</div>
+                  </button>
+                ))}
+              </div>
+            </Field>
+
+            <Field label="学习任务">
+              <div className="grid grid-cols-2 gap-2">
+                {academicTasks.map((item) => (
+                  <button
+                    key={item}
+                    type="button"
+                    onClick={() => setTask(item)}
+                    className={cn(
+                      "rounded-md border px-3 py-2 text-sm font-medium transition",
+                      task === item ? "border-emerald-500 bg-emerald-700 text-white" : "border-slate-200 bg-white text-slate-700 hover:border-emerald-200",
+                    )}
+                  >
+                    {item}
+                  </button>
+                ))}
+              </div>
+            </Field>
+
+            <Field label="粘贴学习材料">
+              <textarea value={material} onChange={(event) => setMaterial(event.target.value)} className={textareaClass} rows={7} />
+            </Field>
+
+            <Field label="本次学习目标">
+              <textarea value={goal} onChange={(event) => setGoal(event.target.value)} className={textareaClass} rows={4} />
+            </Field>
+
+            <Button type="button" onClick={startSession}>
+              <Sparkles className="h-4 w-4" />
+              开始AI辅助学习
+            </Button>
+          </div>
+        </Card>
+
+        <Card title="AI学习过程">
+          {messages.length === 0 ? (
+            <Empty>先选择科目和任务，粘贴真实学习材料，再点击开始。AI会围绕材料生成学习步骤，而不是只给搜索式答案。</Empty>
+          ) : (
+            <div className="grid gap-4">
+              <div className="max-h-[560px] overflow-auto rounded-md border border-slate-200 bg-slate-50 p-4">
+                <div className="grid gap-3">
+                  {messages.map((item, index) => (
+                    <div
+                      key={`${item.role}-${index}`}
+                      className={cn(
+                        "rounded-md p-4 text-sm leading-7 whitespace-pre-line",
+                        item.role === "student" ? "bg-emerald-700 text-white" : "bg-white text-slate-700",
+                      )}
+                    >
+                      <div className={cn("mb-1 text-xs font-medium", item.role === "student" ? "text-emerald-100" : "text-slate-500")}>
+                        {item.label || (item.role === "student" ? "学生" : "AI")}
+                      </div>
+                      {item.content}
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="grid gap-3">
+                <textarea
+                  value={question}
+                  onChange={(event) => setQuestion(event.target.value)}
+                  className={textareaClass}
+                  rows={4}
+                  placeholder="继续追问。建议带上：我哪里没懂、希望AI用什么例子、想怎样验证理解。"
+                />
+                <Button type="button" onClick={() => askFollowUp()} disabled={messages.length === 0 || !question.trim()}>
+                  <Sparkles className="h-4 w-4" />
+                  追问并获得反馈
+                </Button>
+              </div>
+            </div>
+          )}
+        </Card>
+
+        <div className="grid gap-6">
+          <Card title="追问建议">
+            <div className="grid gap-2">
+              {method.followUps.map((item) => (
+                <button
+                  key={item}
+                  type="button"
+                  onClick={() => askFollowUp(item)}
+                  disabled={messages.length === 0}
+                  className="rounded-md border border-slate-200 bg-white px-3 py-3 text-left text-sm leading-6 text-slate-700 transition hover:border-emerald-200 hover:bg-emerald-50 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {item}
+                </button>
+              ))}
+            </div>
+          </Card>
+
+          <Card title="AI素养提示">
+            <div className="grid gap-3 text-sm leading-7 text-slate-700">
+              <div className="rounded-md bg-slate-50 p-3">
+                提问时要给AI上下文：年级、材料、目标、输出形式。
+              </div>
+              <div className="rounded-md bg-slate-50 p-3">
+                不直接照抄AI答案，要追问依据、反例和验证方法。
+              </div>
+              <div className="rounded-md bg-slate-50 p-3">
+                最后用自己的话总结，交给督学看学习证据。
+              </div>
+            </div>
+          </Card>
+
+          <Card title="学习证据">
+            {evidence ? <pre className="whitespace-pre-wrap rounded-md bg-slate-50 p-4 text-sm leading-7 text-slate-700">{evidence}</pre> : <Empty>开始学习后自动生成。</Empty>}
+          </Card>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function buildActiveLearningProfile(input: {
   topic: string;
   stage: string;
@@ -1318,6 +1651,7 @@ function buildActiveLearningReport(profile: ActiveLearningProfile, messages: Act
   ].join("\n");
 }
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function ActiveLearningLab({ logInteraction }: { logInteraction: (interactionType: string, content?: string, wrongQuestionId?: string) => void }) {
   const [topic, setTopic] = useState("我想了解人工智能专业到底学什么");
   const [stage, setStage] = useState("高中 / 专业探索");

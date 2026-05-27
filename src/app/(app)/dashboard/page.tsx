@@ -98,18 +98,18 @@ export default async function DashboardPage() {
       </div>
 
       <Card
-        title="产品亮点：AI主动学习"
-        action={<span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-medium text-emerald-700">提问力训练</span>}
+        title="产品亮点：AI学业助手"
+        action={<span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-medium text-emerald-700">AI素养训练</span>}
         className="border-emerald-200 bg-emerald-50/60"
       >
         <div className="grid gap-4 lg:grid-cols-[1fr_auto] lg:items-center">
           <div className="text-sm leading-7 text-slate-700">
             <div className="flex items-center gap-2 font-medium text-slate-950">
               <Sparkles className="h-4 w-4 text-emerald-700" />
-              让学生在探索新主题时，学习如何向AI提出好问题。
+              让学生用AI辅助真实学业任务，并在学习过程中掌握向AI提问、验证和总结的能力。
             </div>
             <p className="mt-2">
-              适合高中专业探索、新技能入门和兴趣拓展。系统会生成入门地图、评价问题质量、给出更好的问法和追问建议，最后沉淀为督学观察报告。
+              适合数理化、学术英语和通用学习场景。学生可以粘贴教材、笔记、作业要求或英语文本，AI会帮助完成预习、复习、解释、总结和理解检查，最后沉淀为督学可看的学习证据。
             </p>
           </div>
           <LinkButton href="/students" className="bg-emerald-800 hover:bg-emerald-900">
